@@ -1,0 +1,4 @@
+- Repo only shipped `eaglercmp.zip`; it's extracted to `./eaglercmp` (Go app). Compose runs `go run . launch -no-window`.
+- The app only accepts `Host: 127.0.0.1:47262` on loopback, so an nginx sidecar (sharing the app's network namespace) exposes port 3000 and rewrites Host. No app code changed.
+- First boot downloads the Eaglercraft client (needs internet); it persists in the `eagler-data` volume.
+- Needs a browser with Wasm-GC (recent Chrome/Edge).
