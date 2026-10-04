@@ -56,6 +56,8 @@ type Handler struct {
 	// Mods and Restart serve the NaOHX mod manager API.
 	Mods    http.Handler
 	Restart http.Handler
+	// ClientMods is the directory of client-side JavaScript mods.
+	ClientMods string
 	files   http.Handler
 }
 
@@ -106,6 +108,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.Bridge != nil && path.Clean(r.URL.Path) == bridgePath {
 		h.Bridge.ServeHTTP(w, r)
+		return
+	}
+	if cp := path.Clean(r.URL.Path); h.ClientMods != "" && (cp == clientModsPath || strings.HasPrefix(cp, clientModsPath+"/")) {
+		h.serveClientMods(w, r, cp)
 		return
 	}
 	hdr := w.Header()
@@ -269,6 +275,7 @@ console.log("[EaglerCMP] " + naohx.title + " v" + naohx.branding.launcherVersion
 })();
 `)
 	b.WriteString(modUI)
+	b.WriteString(clientModLoader)
 	b.WriteString(introUI)
 	return b.Bytes(), nil
 }

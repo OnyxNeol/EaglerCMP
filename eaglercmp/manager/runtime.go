@@ -192,6 +192,7 @@ func (r *Runtime) Launch(ctx context.Context, m *downloader.Manifest, opts Launc
 	}
 	be := NewBackend("backend", 25566, r.Cfg.Backend, r.Paths.Root, r.Paths.Logs, r.Log)
 	gw := NewBackend("gateway", 25565, r.Cfg.Gateway, r.Paths.Root, r.Paths.Logs, r.Log)
+	h.ClientMods = filepath.Join(r.Paths.Root, "client-mods")
 	h.Mods, h.Restart = &Mods{Backend: be, Gateway: gw}, RestartHandler(be)
 	if r.Cfg.Backend.Enabled {
 		go be.Run(ctx)
