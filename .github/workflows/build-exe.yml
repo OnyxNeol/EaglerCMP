@@ -1,0 +1,118 @@
+name: build-exe
+
+# Builds EaglerCMP into a Windows .exe (Go, client embedded via -tags=bundled) and a
+# zero-setup portable folder: exe + Java 25 JRE + pre-provisioned Minecraft 26.2 Fabric
+# server and Velocity/EaglerXServer gateway (scripts/setup-local-stack.sh).
+
+on:
+  workflow_dispatch:
+    inputs:
+      client_source:
+        description: "Eaglercraft client to embed (default: upstream eymenwsmc/playopspt.github.io, 262/)"
+        required: false
+        default: "https://raw.githubusercontent.com/eymenwsmc/playopspt.github.io/main/262/index.html"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CGO_ENABLED: "0"
+  GOFLAGS: -tags=bundled
+  CLIENT_SOURCE: ${{ inputs.client_source || 'https://raw.githubusercontent.com/eymenwsmc/playopspt.github.io/main/262/index.html' }}
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: eaglercmp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: eaglercmp/go.mod
+
+      # JDK 25 is only used on the runner to provision the server stack.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then v="$GITHUB_REF_NAME"; else v="dev-${GITHUB_SHA::7}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch Eaglercraft client (embedded into the exe)
+        run: |
+          go run . import -dir "$RUNNER_TEMP/inst" "$CLIENT_SOURCE"
+          entry=$(jq -r .entry "$RUNNER_TEMP/inst/client/.eaglercmp-client.json")
+          tar -czf bundle/client.tar.gz -C "$RUNNER_TEMP/inst/client" --exclude=.eaglercmp-client.json .
+          echo "$CLIENT_SOURCE -> $entry, fetched $(date -u +%Y-%m-%d)" > bundle/source.txt
+          cat bundle/source.txt
+
+      - name: Build eaglercmp.exe
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: .\scripts\build.ps1 -Target windows/amd64 -Version "$env:VERSION" -SkipChecks
+
+      - name: Smoke test
+        run: |
+          ./bin/eaglercmp.exe help
+          ./bin/eaglercmp.exe init -dir "$RUNNER_TEMP/smoke"
+          ./bin/eaglercmp.exe status -dir "$RUNNER_TEMP/smoke" | tee status.txt
+          grep -q "Source:    bundled" status.txt
+
+      - name: Provision server stack (Fabric 26.2, Fabric API, Velocity, EaglerXServer, ViaVersion)
+        run: |
+          mkdir -p ../portable/data
+          sh scripts/setup-local-stack.sh "$(pwd)/../portable/data"
+          taskkill //F //IM java.exe >/dev/null 2>&1 || true
+          for f in backend/fabric-server-launch.jar gateway/velocity.jar gateway/plugins/EaglerXServer.jar \
+                   gateway/plugins/ViaVersion.jar gateway/plugins/ViaBackwards.jar \
+                   gateway/plugins/eaglerxserver/listeners.toml eaglercmp.json; do
+            [[ -f "../portable/data/$f" ]] || { echo "missing $f" >&2; exit 1; }
+          done
+          ls ../portable/data/backend/mods | grep -q '^fabric-api-' || { echo "missing Fabric API" >&2; exit 1; }
+
+      - name: Bundle Java 25 JRE
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/jre.zip" \
+            "https://api.adoptium.net/v3/binary/latest/25/ga/windows/x64/jre/hotspot/normal/eclipse"
+          mkdir -p "$RUNNER_TEMP/jre"
+          7z x -y -o"$RUNNER_TEMP/jre" "$RUNNER_TEMP/jre.zip" >/dev/null
+          mv "$RUNNER_TEMP"/jre/*/ ../portable/jre
+          ../portable/jre/bin/java.exe -version
+
+      - name: Assemble portable folder
+        run: |
+          cp bin/eaglercmp.exe ../portable/eaglercmp.exe
+          cp README.md NOTICE.md ../portable/
+          printf '%s\r\n' '@echo off' \
+            'rem Zero-setup launcher: uses the bundled Java 25 and keeps all data next to this file.' \
+            'set "EAGLERCMP_HOME=%~dp0data"' \
+            'set "PATH=%~dp0jre\bin;%PATH%"' \
+            'start "" "%~dp0eaglercmp.exe" launch' > ../portable/EaglerCMP.bat
+          printf '%s\r\n' 'Double-click EaglerCMP.bat. Needs Edge or Chrome (Wasm-GC).' \
+            'Server mods (.jar, Fabric for Minecraft 26.2): use the Mods button on the title screen,' \
+            'or drop them in data\backend\mods and restart.' \
+            'Running this stack accepts the Minecraft EULA: https://aka.ms/MinecraftEULA' > ../portable/README-FIRST.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eaglercmp-windows-exe
+          path: eaglercmp/bin/eaglercmp.exe
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eaglercmp-windows-portable-${{ steps.version.outputs.version }}
+          path: portable
+          if-no-files-found: error

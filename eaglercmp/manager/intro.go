@@ -34,14 +34,20 @@ function finish() {
 }
 v.addEventListener("ended", finish);
 v.addEventListener("error", finish);
+// Safety net: never leave the overlay up if playback stalls (hidden tab, decode hang).
+var guard = setTimeout(finish, 12000);
+v.addEventListener("loadedmetadata", function () {
+	if (isFinite(v.duration)) { clearTimeout(guard); guard = setTimeout(finish, v.duration * 1000 + 3000); }
+});
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") finish(); });
 function mount() {
 	document.body.appendChild(root);
 	var p = v.play();
 	if (p && p.catch) p.catch(function () {
-		prompt.style.display = "flex";
+		clearTimeout(guard); prompt.style.display = "flex";
 		root.addEventListener("click", function () {
 			prompt.style.display = "none";
+			clearTimeout(guard); guard = setTimeout(finish, 12000);
 			v.currentTime = 0;
 			v.play().catch(finish);
 		}, { once: true });

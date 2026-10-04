@@ -4,12 +4,12 @@
 #   gateway/  Velocity + EaglerXServer (+ ViaVersion/ViaBackwards): the Eaglercraft
 #             WebSocket listener (same port as Velocity, 127.0.0.1:25565) that forwards standard
 #             Minecraft packets to Fabric. The daemon tunnels /__eaglercmp/bridge to it.
-# Env: MC_VERSION (default 1.21.1), VELOCITY_VERSION (default 3.4.0-SNAPSHOT).
+# Env: MC_VERSION (default 26.2, needs Java 25), VELOCITY_VERSION (default 4.2.1-SNAPSHOT: first line that speaks the 26.x protocol).
 # Running this accepts the Minecraft EULA (https://aka.ms/MinecraftEULA).
 set -eu
 inst="${1:?usage: setup-local-stack.sh <instance-dir>}"
-mc="${MC_VERSION:-1.21.1}"
-vel="${VELOCITY_VERSION:-3.4.0-SNAPSHOT}"
+mc="${MC_VERSION:-26.2}"
+vel="${VELOCITY_VERSION:-4.2.1-SNAPSHOT}"
 be="$inst/backend"; gw="$inst/gateway"
 mkdir -p "$be/mods" "$gw/plugins"
 
@@ -21,18 +21,28 @@ modrinth() {
 }
 
 # --- Fabric game server ---
-if [ ! -f "$be/fabric-server-launch.jar" ]; then
+# (re)install when missing or when MC_VERSION changed since the last provisioning
+if [ ! -f "$be/fabric-server-launch.jar" ] || [ "$(cat "$be/.mc-version" 2>/dev/null)" != "$mc" ]; then
+  rm -rf "$be/.fabric" "$be/libraries" "$be/versions"
   loader=$(curl -fsS https://meta.fabricmc.net/v2/versions/loader | sed -n 's/.*"version": "\([^"]*\)".*/\1/p' | head -1)
   installer=$(curl -fsS https://meta.fabricmc.net/v2/versions/installer | sed -n 's/.*"version": "\([^"]*\)".*/\1/p' | head -1)
   fetch "https://meta.fabricmc.net/v2/versions/loader/$mc/$loader/$installer/server/jar" "$be/fabric-server-launch.jar"
+  echo "$mc" > "$be/.mc-version"
+fi
+# Fabric API for this Minecraft version (most mods depend on it)
+if ! ls "$be"/mods/fabric-api-*.jar >/dev/null 2>&1; then
+  url=$(curl -fsS "https://api.modrinth.com/v2/project/fabric-api/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%22$mc%22%5D" \
+    | jq -r '[.[] | select(.version_type=="release")][0].files[0].url // empty')
+  [ -n "$url" ] && fetch "$url" "$be/mods/$(basename "$(printf %s "$url" | sed 's/%2B/+/g')")" || echo "warning: no Fabric API for $mc" >&2
 fi
 echo "eula=true" > "$be/eula.txt"
 [ -f "$be/server.properties" ] || printf 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=25566\nenforce-secure-profile=false\n' > "$be/server.properties"
 
 # --- Velocity gateway ---
-if [ ! -f "$gw/velocity.jar" ]; then
+if [ ! -f "$gw/velocity.jar" ] || [ "$(cat "$gw/.velocity-version" 2>/dev/null)" != "$vel" ]; then
   url=$(curl -fsS "https://fill.papermc.io/v3/projects/velocity/versions/$vel/builds/latest" | sed -n 's/.*"url":"\([^"]*\.jar\)".*/\1/p' | head -1)
   fetch "$url" "$gw/velocity.jar"
+  echo "$vel" > "$gw/.velocity-version"
 fi
 # Loopback only, no accounts: Eaglercraft players have no Mojang session, and the
 # Fabric server only listens on 127.0.0.1, so forwarding stays "none".
