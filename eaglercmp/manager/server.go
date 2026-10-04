@@ -119,6 +119,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		hdr.Set("Cache-Control", "no-cache")
 		w.Write(h.Script)
 		return
+	case p == introGIFPath:
+		hdr.Set("Content-Type", "image/gif")
+		hdr.Set("Cache-Control", "no-cache")
+		w.Write(introGIF)
+		return
+	case p == introMP3Path:
+		hdr.Set("Content-Type", "audio/mpeg")
+		hdr.Set("Cache-Control", "no-cache")
+		w.Write(introMP3)
+		return
 	case p == brandingPath:
 		hdr.Set("Content-Type", contentTypes[".json"])
 		hdr.Set("Cache-Control", "no-cache")
@@ -263,5 +273,6 @@ console.log("[EaglerCMP] " + naohx.title + " v" + naohx.branding.launcherVersion
 })();
 `)
 	b.WriteString(modUI)
+	b.WriteString(introUI)
 	return b.Bytes(), nil
 }
