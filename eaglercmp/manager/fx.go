@@ -9,12 +9,7 @@ package manager
 const fxRuntime = `
 ;(function () {
 "use strict";
-var E = window.eaglercmp = window.eaglercmp || {};
-var handlers = {};
-E.on = function (t, f) { (handlers[t] = handlers[t] || []).push(f); };
-E.emit = function (t, d) {
-	(handlers[t] || []).slice().forEach(function (f) { try { f(d || {}); } catch (e) { console.error("[EaglerCMP] handler error", e); } });
-};
+var E = window.eaglercmp = window.eaglercmp || {}; // on/emit come from client-mods/loader.js, injected before this
 // ---- camera capture -------------------------------------------------------
 var cam = E.camera = { view: null, proj: null, viewport: [0, 0], at: 0 };
 function unit(f, o) { var l = f[o] * f[o] + f[o + 1] * f[o + 1] + f[o + 2] * f[o + 2]; return Math.abs(l - 1) < 0.01; }

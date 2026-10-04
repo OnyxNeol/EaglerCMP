@@ -40,6 +40,13 @@ var contentTypes = map[string]string{
 	".epw":  "application/octet-stream",
 	".png":  "image/png",
 	".css":  "text/css; charset=utf-8",
+	".ogg":  "audio/ogg",
+	".mp3":  "audio/mpeg",
+	".wav":  "audio/wav",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".svg":  "image/svg+xml",
+	".txt":  "text/plain; charset=utf-8",
 }
 
 // Handler serves an installed client on the loopback interface. The entry
@@ -57,7 +64,8 @@ type Handler struct {
 	Mods    http.Handler
 	Restart http.Handler
 	// ClientMods is the directory of client-side JavaScript mods.
-	ClientMods string
+	ClientMods   string
+	ClientAssets string
 	// Events is the server-to-page event bridge.
 	Events *EventHub
 	files  http.Handler
@@ -121,8 +129,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.Bridge.ServeHTTP(w, r)
 		return
 	}
-	if cp := path.Clean(r.URL.Path); h.ClientMods != "" && (cp == clientModsPath || strings.HasPrefix(cp, clientModsPath+"/")) {
+	if cp := path.Clean(r.URL.Path); h.ClientMods != "" && hasPrefixPath(cp, clientModsPath) {
 		h.serveClientMods(w, r, cp)
+		return
+	} else if h.ClientAssets != "" && hasPrefixPath(cp, clientAssetsPath) {
+		h.serveClientAssets(w, r, cp)
 		return
 	}
 	hdr := w.Header()
