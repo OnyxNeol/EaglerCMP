@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // Server is a multiplayer entry handed to the Eaglercraft client. Addr is a
@@ -139,6 +140,12 @@ func (c *Config) Validate() error {
 	if b := c.Backend; b.Enabled {
 		if b.Jar == "" {
 			return fmt.Errorf("backend.jar is required when the backend is enabled")
+		}
+		if !strings.HasSuffix(strings.ToLower(b.Jar), ".jar") || filepath.IsAbs(b.Jar) || strings.Contains(b.Jar, "..") {
+			return fmt.Errorf("backend.jar %q must be a .jar path relative to the server directory", b.Jar)
+		}
+		if b.WSPort == c.Port {
+			return fmt.Errorf("backend.wsPort must differ from port %d", c.Port)
 		}
 		if b.WSPort < 0 || b.WSPort > 65535 {
 			return fmt.Errorf("invalid backend.wsPort %d", b.WSPort)

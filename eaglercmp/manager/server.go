@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -51,7 +52,10 @@ type Handler struct {
 	// Bridge, when set, tunnels WebSocket connections on bridgePath to the
 	// local JVM backend.
 	Bridge http.Handler
-	files  http.Handler
+	// Mods and Restart serve the NaOHX mod manager API.
+	Mods    http.Handler
+	Restart http.Handler
+	files   http.Handler
 }
 
 // NewHandler builds the asset server for an installed client.
@@ -84,6 +88,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !h.allowedHost(r.Host) {
 		http.Error(w, "forbidden host", http.StatusForbidden)
 		return
+	}
+	if h.Mods != nil {
+		switch path.Clean(r.URL.Path) {
+		case modsPath:
+			h.checkOriginThen(w, r, h.Mods)
+			return
+		case backendRestartPath:
+			h.checkOriginThen(w, r, h.Restart)
+			return
+		}
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -123,6 +137,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	hdr.Set("Cache-Control", "no-cache")
 	h.files.ServeHTTP(w, r)
+}
+
+// checkOriginThen rejects cross-origin API calls before delegating.
+func (h *Handler) checkOriginThen(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	if o := r.Header.Get("Origin"); o != "" {
+		if u, err := url.Parse(o); err != nil || !h.allowedHost(u.Host) {
+			http.Error(w, "forbidden origin", http.StatusForbidden)
+			return
+		}
+	}
+	next.ServeHTTP(w, r)
 }
 
 var headRe = regexp.MustCompile(`(?i)<head(\s[^>]*)?>`)
@@ -237,5 +262,6 @@ window.addEventListener("load", brand);
 console.log("[EaglerCMP] " + naohx.title + " v" + naohx.branding.launcherVersion + " | " + naohx.servers.length + " configured server(s)");
 })();
 `)
+	b.WriteString(modUI)
 	return b.Bytes(), nil
 }

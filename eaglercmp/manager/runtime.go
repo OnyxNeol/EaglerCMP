@@ -190,8 +190,9 @@ func (r *Runtime) Launch(ctx context.Context, m *downloader.Manifest, opts Launc
 	if err != nil {
 		return 1, err
 	}
+	be := NewBackend(r.Cfg.Backend, r.Paths.Root, r.Paths.Logs, r.Log)
+	h.Mods, h.Restart = &Mods{Backend: be}, RestartHandler(be)
 	if r.Cfg.Backend.Enabled {
-		be := &Backend{Cfg: r.Cfg.Backend, Root: r.Paths.Root, Logs: r.Paths.Logs, Log: r.Log}
 		h.Bridge = &Bridge{Addr: be.Addr(), Allow: h.allowedHost}
 		go be.Run(ctx)
 	}

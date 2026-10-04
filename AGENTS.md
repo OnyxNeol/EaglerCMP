@@ -3,3 +3,7 @@
 - First boot downloads the Eaglercraft client (needs internet); it persists in the `eagler-data` volume.
 - Needs a browser with Wasm-GC (recent Chrome/Edge).
 - Optional JVM backend (`backend` in eaglercmp.json, manager/jvm.go + bridge.go): daemon supervises a Java server and tunnels the client WebSocket at /__eaglercmp/bridge to its loopback Eaglercraft WS port. Packet translation is NOT in Go; the Java server needs an Eaglercraft-protocol plugin (e.g. EaglerXServer). Server jar/mods are user-supplied.
+- App image is built from `docker/Dockerfile.dev` (Go + JDK 21, toolchain only). nginx sidecar also rewrites Origin and passes WebSocket upgrades.
+- Mod manager: injected "NaOHX MODS" button -> `/__eaglercmp/mods` (GET/POST/DELETE, needs `X-EaglerCMP` header) and `/__eaglercmp/backend/restart`. Mods land in `<instance>/backend/mods`.
+- `eaglercmp/scripts/testserver.sh <instance>` downloads a Fabric server. No Fabric-compatible Eaglercraft WebSocket plugin is bundled (EaglerXServer targets Spigot/Bungee/Velocity), so the tunnel is untested end-to-end with a real client.
+- Backend failures (missing jar/Java, crash loop, no WS listener) surface via `backend.state/error` in the mods API instead of retrying forever.
