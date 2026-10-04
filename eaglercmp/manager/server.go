@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/OnyxNeol/eaglercmp/config"
 	"github.com/OnyxNeol/eaglercmp/downloader"
@@ -119,15 +120,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		hdr.Set("Cache-Control", "no-cache")
 		w.Write(h.Script)
 		return
-	case p == introGIFPath:
-		hdr.Set("Content-Type", "image/gif")
+	case p == introMP4Path:
+		hdr.Set("Content-Type", "video/mp4")
 		hdr.Set("Cache-Control", "no-cache")
-		w.Write(introGIF)
-		return
-	case p == introMP3Path:
-		hdr.Set("Content-Type", "audio/mpeg")
-		hdr.Set("Cache-Control", "no-cache")
-		w.Write(introMP3)
+		http.ServeContent(w, r, "intro.mp4", time.Time{}, bytes.NewReader(introMP4))
 		return
 	case p == brandingPath:
 		hdr.Set("Content-Type", contentTypes[".json"])

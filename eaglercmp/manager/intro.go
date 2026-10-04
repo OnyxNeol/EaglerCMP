@@ -2,75 +2,49 @@ package manager
 
 import _ "embed"
 
-// Startup intro: the logo animation (3.87s GIF) and its audio (~4.36s MP3)
-// play together over the client while it boots.
-var (
-	//go:embed assets/intro.gif
-	introGIF []byte
-	//go:embed assets/intro.mp3
-	introMP3 []byte
-)
+// Startup intro: the logo animation and its audio, merged into one MP4 so
+// picture and sound are always in sync. It plays over the client while it boots.
+//
+//go:embed assets/intro.mp4
+var introMP4 []byte
 
-const (
-	introGIFPath = "/__eaglercmp/intro.gif"
-	introMP3Path = "/__eaglercmp/intro.mp3"
-)
+const introMP4Path = "/__eaglercmp/intro.mp4"
 
-// introUI is a full-screen overlay. The GIF is restarted (cache-busted) at the
-// exact moment the audio starts so they stay in sync; when the GIF ends its
-// last frame is frozen on a canvas until the audio finishes, then it fades out.
-// Browsers block autoplay audio, so a click-to-start prompt is shown if needed.
+// introUI is a full-screen overlay with a single <video>. Browsers block
+// autoplay with sound, so a click-to-start prompt is shown if play() is refused.
 const introUI = `
 ;(function () {
 "use strict";
-var GIF_MS = 3870, BG = "#f0303f";
 var root = document.createElement("div");
-root.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:" + BG + ";display:flex;align-items:center;justify-content:center;transition:opacity .5s;font:14px monospace;color:#fff;cursor:pointer";
-var img = document.createElement("img");
-img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;display:none";
-var canvas = document.createElement("canvas");
-canvas.style.cssText = img.style.cssText;
+root.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#f0303f;transition:opacity .5s;font:14px monospace;color:#fff;cursor:pointer";
+var v = document.createElement("video");
+v.src = "` + introMP4Path + `";
+v.playsInline = true;
+v.preload = "auto";
+v.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
 var prompt = document.createElement("div");
 prompt.textContent = "CLICK TO START";
-prompt.style.cssText = "letter-spacing:.2em;display:none";
-root.appendChild(img); root.appendChild(canvas); root.appendChild(prompt);
-var audio = new Audio("` + introMP3Path + `");
-audio.preload = "auto";
-var finished = false, freezeTimer;
+prompt.style.cssText = "position:absolute;inset:0;display:none;align-items:center;justify-content:center;letter-spacing:.2em;background:#f0303f";
+root.appendChild(v); root.appendChild(prompt);
+var done = false;
 function finish() {
-	if (finished) return; finished = true;
-	clearTimeout(freezeTimer); audio.pause();
-	root.style.opacity = "0";
+	if (done) return; done = true;
+	v.pause(); root.style.opacity = "0";
 	setTimeout(function () { root.remove(); }, 550);
 }
-function freeze() {
-	canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-	try { canvas.getContext("2d").drawImage(img, 0, 0); canvas.style.display = ""; img.style.display = "none"; } catch (e) {}
-}
-function start() {
-	prompt.style.display = "none";
-	audio.currentTime = 0;
-	var p = audio.play();
-	return p && p.then ? p.then(go) : (go(), 0);
-}
-function go() {
-	canvas.style.display = "none";
-	img.style.display = "";
-	img.src = "` + introGIFPath + `?t=" + Date.now(); // restart the GIF in step with the audio
-	freezeTimer = setTimeout(freeze, GIF_MS - 40);
-}
-audio.addEventListener("ended", finish);
-root.addEventListener("click", function () { if (started) finish(); });
-document.addEventListener("keydown", function (e) { if (started && (e.key === "Escape" || e.key === " ")) finish(); });
-var started = false;
+v.addEventListener("ended", finish);
+v.addEventListener("error", finish);
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") finish(); });
 function mount() {
 	document.body.appendChild(root);
-	start().then(function () { started = true; }, function () {
-		prompt.style.display = "";
-		root.addEventListener("click", function once() {
-			root.removeEventListener("click", once);
-			start().then(function () { started = true; }, finish);
-		});
+	var p = v.play();
+	if (p && p.catch) p.catch(function () {
+		prompt.style.display = "flex";
+		root.addEventListener("click", function () {
+			prompt.style.display = "none";
+			v.currentTime = 0;
+			v.play().catch(finish);
+		}, { once: true });
 	});
 }
 if (document.body) mount(); else document.addEventListener("DOMContentLoaded", mount);
