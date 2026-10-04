@@ -4,35 +4,39 @@ package manager
 // floating button that opens a modal to upload/remove .jar mods and restart
 // the local server. All text is set via textContent (mod names are untrusted).
 const modUI = `
-// Title-screen detector: the canvas UI has no DOM, so watch WebGL draws for the
-// 1024x256 title logo texture; the Mods button is shown only while it is drawn.
+// Title-screen detector: the game UI is drawn on a WebGL canvas (no DOM), so we
+// look at its pixels. The title screen is the one with 3+ wide stacked stone
+// buttons; the Edit Profile screen only has one wide button. The canvas is
+// forced to keep its drawing buffer so it can be sampled.
 ;(function () {
-var info = new WeakMap(), bound = {}, unit = 0x84C0;
 window.__nxTitleAt = 0;
-function hook(P) {
-	if (!P) return;
-	var ti = P.texImage2D, bt = P.bindTexture, at = P.activeTexture;
-	P.texImage2D = function (t, lv) {
-		var r = ti.apply(this, arguments), a = arguments, w, h;
-		if (lv === 0) {
-			if (a.length === 6) { w = a[5].width; h = a[5].height; } else if (a.length >= 9) { w = a[3]; h = a[4]; }
-			var tex = bound[unit + "|" + t];
-			if (tex) info.set(tex, w === 1024 && h === 256);
+var gc = HTMLCanvasElement.prototype.getContext;
+HTMLCanvasElement.prototype.getContext = function (t, o) {
+	if (/webgl/.test(t)) o = Object.assign({}, o, { preserveDrawingBuffer: true });
+	return gc.call(this, t, o);
+};
+var probe = document.createElement("canvas"), px = probe.getContext("2d", { willReadFrequently: true });
+function bands(src) {
+	var w = Math.max(1, Math.round(src.width / 4)), h = Math.max(1, Math.round(src.height / 4));
+	probe.width = w; probe.height = h; px.imageSmoothingEnabled = false;
+	px.drawImage(src, 0, 0, w, h);
+	var d = px.getImageData(0, 0, w, h).data, need = w * 0.2, n = 0, inBand = false;
+	for (var y = 0; y < h; y++) {
+		var run = 0, best = 0;
+		for (var x = 0; x < w; x++) {
+			var i = (y * w + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
+			if (r > 60 && r < 160 && Math.abs(r - g) < 10 && Math.abs(g - b) < 14) { if (++run > best) best = run; } else run = 0;
 		}
-		return r;
-	};
-	P.bindTexture = function (t, tex) { bound[unit + "|" + t] = tex; return bt.apply(this, arguments); };
-	P.activeTexture = function (u) { unit = u; return at.apply(this, arguments); };
-	["drawArrays", "drawElements"].forEach(function (n) {
-		var f = P[n]; if (!f) return;
-		P[n] = function () {
-			if (info.get(bound[unit + "|" + 0x0DE1])) window.__nxTitleAt = performance.now();
-			return f.apply(this, arguments);
-		};
-	});
+		if (best >= need) { if (!inBand) { n++; inBand = true; } } else inBand = false;
+	}
+	return n;
 }
-hook(window.WebGLRenderingContext && WebGLRenderingContext.prototype);
-hook(window.WebGL2RenderingContext && WebGL2RenderingContext.prototype);
+setInterval(function () {
+	if (document.hidden) return;
+	var c = document.querySelector("canvas");
+	if (!c || !c.width) return;
+	try { var n = bands(c); window.__nxBands = n; if (n >= 3) window.__nxTitleAt = performance.now(); } catch (e) { window.__nxErr = String(e); }
+}, 300);
 })();
 ;(function () {
 "use strict";
@@ -63,7 +67,7 @@ function init() {
 	var modal = el("div", "nx-modal"), card = el("div", "nx-card"); modal.appendChild(card);
 	document.body.appendChild(btn); document.body.appendChild(modal);
 	// Only show the button on the title screen: hide it while the mouse is captured (in-game).
-	setInterval(function () { btn.classList.toggle("show", performance.now() - window.__nxTitleAt < 700 && !document.pointerLockElement); }, 250);
+	setInterval(function () { btn.classList.toggle("show", performance.now() - window.__nxTitleAt < 1000 && !document.pointerLockElement); }, 250);
 	var input = el("input"); input.type = "file"; input.accept = ".jar"; input.multiple = true; input.style.display = "none";
 	function api(url, opt) {
 		opt = opt || {}; opt.headers = H;
