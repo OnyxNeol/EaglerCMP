@@ -7,30 +7,33 @@ const modUI = `
 ;(function () {
 "use strict";
 var API = "` + modsPath + `", RESTART = "` + backendRestartPath + `", H = { "X-EaglerCMP": "1" };
-var css = ".nx-btn,.nx-modal,.nx-modal *{box-sizing:border-box;font-family:Consolas,'Courier New',monospace}" +
-".nx-btn{position:fixed;right:14px;bottom:14px;z-index:2147483646;background:#0b0f14;color:#00e5ff;border:1px solid #00e5ff;border-radius:2px;padding:8px 14px;font-size:13px;letter-spacing:.08em;cursor:pointer;opacity:.55;transition:opacity .12s,box-shadow .12s}" +
-".nx-btn:hover,.nx-btn:focus{opacity:1;box-shadow:0 0 12px rgba(0,229,255,.55);outline:none}" +
-".nx-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(5,8,12,.78);display:none;align-items:center;justify-content:center}" +
+var css = ".nx-btn,.nx-modal,.nx-modal *{box-sizing:border-box;font-family:'Minecraft','Press Start 2P',Consolas,'Courier New',monospace}" +
+".nx-btn{position:fixed;left:12px;top:12px;width:110px;z-index:2147483646;background:#6f6f6f;color:#e0e0e0;border:2px solid #000;border-radius:0;box-shadow:inset 2px 2px 0 #a8a8a8,inset -2px -2px 0 #3c3c3c;padding:9px 14px;font-size:16px;font-weight:700;text-shadow:2px 2px 0 #1e1e1e;cursor:pointer;image-rendering:pixelated}" +
+".nx-btn:hover,.nx-btn:focus{background:#7a86c9;color:#ffffa0;outline:none;box-shadow:inset 2px 2px 0 #b6bff0,inset -2px -2px 0 #3d4580}" +
+".nx-btn.hide{display:none}" +
+".nx-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center}" +
 ".nx-modal.open{display:flex}" +
-".nx-card{width:min(560px,92vw);max-height:86vh;overflow:auto;background:#0b0f14;color:#d6e4ee;border:1px solid #1c2a36;border-top:2px solid #00e5ff;border-radius:2px;padding:18px}" +
-".nx-card h2{margin:0 0 4px;font-size:16px;color:#00e5ff;letter-spacing:.12em;font-weight:700}" +
-".nx-sub{font-size:11px;color:#6b8296;margin-bottom:12px}" +
-".nx-pill{display:inline-block;padding:2px 8px;border:1px solid #1c2a36;font-size:11px;margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em}" +
-".nx-pill.ready{color:#b6ff3b;border-color:#b6ff3b}.nx-pill.starting{color:#ffd23b;border-color:#ffd23b}.nx-pill.error{color:#ff4d6d;border-color:#ff4d6d}" +
-".nx-err{color:#ff4d6d;font-size:12px;margin:0 0 10px;white-space:pre-wrap;word-break:break-word}" +
-".nx-drop{border:1px dashed #00e5ff;padding:18px;text-align:center;font-size:13px;color:#00e5ff;cursor:pointer;margin-bottom:12px}" +
-".nx-drop.over,.nx-drop:hover{background:rgba(0,229,255,.08)}" +
-".nx-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #121b24;font-size:12px}" +
-".nx-row span:first-child{flex:1;word-break:break-all}.nx-row span+span{color:#6b8296}" +
-".nx-b{background:transparent;color:#d6e4ee;border:1px solid #2a3b4a;border-radius:2px;padding:5px 10px;font-size:12px;cursor:pointer}" +
-".nx-b:hover{border-color:#00e5ff;color:#00e5ff}.nx-b.pri{background:#00e5ff;color:#05080c;border-color:#00e5ff;font-weight:700}" +
-".nx-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.nx-msg{font-size:12px;color:#b6ff3b;min-height:16px;margin-top:8px}";
+".nx-card{width:min(560px,92vw);max-height:86vh;overflow:auto;background:#3b2a1a;background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.12) 0 8px,rgba(255,255,255,.03) 8px 16px);color:#e0e0e0;border:4px solid #000;box-shadow:inset 3px 3px 0 #6b4a2b,inset -3px -3px 0 #22160b;padding:18px}" +
+".nx-card h2{margin:0 0 4px;font-size:20px;color:#fff;text-shadow:2px 2px 0 #3f3f3f;font-weight:700}" +
+".nx-sub{font-size:12px;color:#aaa;margin-bottom:12px;text-shadow:1px 1px 0 #000}" +
+".nx-pill{display:inline-block;padding:2px 8px;background:#000;border:2px solid #555;font-size:12px;margin-bottom:10px;text-transform:uppercase}" +
+".nx-pill.ready{color:#55ff55;border-color:#55ff55}.nx-pill.starting{color:#ffff55;border-color:#ffff55}.nx-pill.error{color:#ff5555;border-color:#ff5555}" +
+".nx-err{color:#ff5555;font-size:12px;margin:0 0 10px;white-space:pre-wrap;word-break:break-word}" +
+".nx-drop{background:rgba(0,0,0,.45);border:2px dashed #aaa;padding:18px;text-align:center;font-size:13px;color:#ffff55;cursor:pointer;margin-bottom:12px}" +
+".nx-drop.over,.nx-drop:hover{background:rgba(122,134,201,.35)}" +
+".nx-row{display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:2px;background:rgba(0,0,0,.4);font-size:12px}" +
+".nx-row span:first-child{flex:1;word-break:break-all}.nx-row span+span{color:#aaa}" +
+".nx-b{background:#6f6f6f;color:#e0e0e0;border:2px solid #000;border-radius:0;box-shadow:inset 2px 2px 0 #a8a8a8,inset -2px -2px 0 #3c3c3c;padding:6px 12px;font-size:13px;font-weight:700;text-shadow:2px 2px 0 #1e1e1e;cursor:pointer}" +
+".nx-b:hover{background:#7a86c9;color:#ffffa0;box-shadow:inset 2px 2px 0 #b6bff0,inset -2px -2px 0 #3d4580}.nx-b.pri{background:#4a8a2a;box-shadow:inset 2px 2px 0 #7fcf55,inset -2px -2px 0 #2a5516}.nx-b.pri:hover{background:#5fae37}" +
+".nx-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.nx-msg{font-size:12px;color:#55ff55;min-height:16px;margin-top:8px}";
 function el(t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
 function init() {
 	var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
-	var btn = el("button", "nx-btn", "NaOHX MODS"); btn.type = "button";
+	var btn = el("button", "nx-btn", "Mods"); btn.type = "button";
 	var modal = el("div", "nx-modal"), card = el("div", "nx-card"); modal.appendChild(card);
 	document.body.appendChild(btn); document.body.appendChild(modal);
+	// Only show the button on the title screen: hide it while the mouse is captured (in-game).
+	document.addEventListener("pointerlockchange", function () { btn.classList.toggle("hide", !!document.pointerLockElement); });
 	var input = el("input"); input.type = "file"; input.accept = ".jar"; input.multiple = true; input.style.display = "none";
 	function api(url, opt) {
 		opt = opt || {}; opt.headers = H;
@@ -38,7 +41,7 @@ function init() {
 	}
 	function render(data, msg) {
 		card.textContent = "";
-		card.appendChild(el("h2", null, "NaOHX // MODS"));
+		card.appendChild(el("h2", null, "Mods"));
 		card.appendChild(el("div", "nx-sub", "Sodium HX Graphics - local Fabric server mods (.jar)"));
 		var b = data.backend || {};
 		var g = data.gateway || {};
@@ -70,7 +73,7 @@ function init() {
 	}
 	function fail(e) { refresh("", "Error: " + e.message); }
 	function refresh(msg, err) {
-		api(API).then(function (d) { render(d, err || msg); if (err) card.querySelector(".nx-msg").style.color = "#ff4d6d"; },
+		api(API).then(function (d) { render(d, err || msg); if (err) card.querySelector(".nx-msg").style.color = "#ff5555"; },
 			function (e) { card.textContent = "Mod API unavailable: " + e.message; });
 	}
 	function upload(files) {
