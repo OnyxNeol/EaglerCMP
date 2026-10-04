@@ -19,7 +19,6 @@ permissions:
 
 env:
   CGO_ENABLED: "0"
-  GOFLAGS: -tags=bundled
   CLIENT_SOURCE: ${{ inputs.client_source || 'https://raw.githubusercontent.com/eymenwsmc/playopspt.github.io/main/262/index.html' }}
 
 jobs:
@@ -30,15 +29,15 @@ jobs:
         shell: bash
         working-directory: eaglercmp
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
           cache-dependency-path: eaglercmp/go.mod
 
       # JDK 25 is only used on the runner to provision the server stack.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
@@ -60,6 +59,7 @@ jobs:
       - name: Build eaglercmp.exe
         shell: pwsh
         env:
+          GOFLAGS: -tags=bundled
           VERSION: ${{ steps.version.outputs.version }}
         run: .\scripts\build.ps1 -Target windows/amd64 -Version "$env:VERSION" -SkipChecks
 
