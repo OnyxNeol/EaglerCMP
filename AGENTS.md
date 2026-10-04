@@ -1,0 +1,11 @@
+- Repo only shipped `eaglercmp.zip`; it's extracted to `./eaglercmp` (Go app). Compose runs `go run . launch -no-window`.
+- The app only accepts `Host: 127.0.0.1:47262` on loopback, so an nginx sidecar (sharing the app's network namespace) exposes port 3000 and rewrites Host. No app code changed.
+- First boot downloads the Eaglercraft client (needs internet); it persists in the `eagler-data` volume.
+- Needs a browser with Wasm-GC (recent Chrome/Edge).
+- Optional JVM backend (`backend` in eaglercmp.json, manager/jvm.go + bridge.go): daemon supervises a Java server and tunnels the client WebSocket at /__eaglercmp/bridge to its loopback Eaglercraft WS port. Packet translation is NOT in Go; the Java server needs an Eaglercraft-protocol plugin (e.g. EaglerXServer). Server jar/mods are user-supplied.
+- App image is built from `docker/Dockerfile.dev` (Go + JDK 21, toolchain only). nginx sidecar also rewrites Origin and passes WebSocket upgrades.
+- Mod manager: injected "NaOHX MODS" button -> `/__eaglercmp/mods` (GET/POST/DELETE, needs `X-EaglerCMP` header) and `/__eaglercmp/backend/restart`. Mods land in `<instance>/backend/mods`.
+- Backend failures (missing jar/Java, crash loop, no WS listener) surface via `backend.state/error` in the mods API instead of retrying forever.
+- Default topology (dual layer): browser WS -> `/__eaglercmp/bridge` -> Velocity+EaglerXServer gateway (127.0.0.1:25565, `gateway` in eaglercmp.json, dir `<instance>/gateway`) -> Fabric (127.0.0.1:25566, `backend`, dir `<instance>/backend`, mods in `backend/mods`). Gateway runs offline-mode, forwarding "none", loopback only. The `app` service startup runs `scripts/setup-local-stack.sh` (idempotent; needs curl+jq+java) to download Fabric/Velocity/EaglerXServer/ViaVersion/ViaBackwards and write eaglercmp.json if missing. Existing `server.properties`/`eaglercmp.json` are never overwritten.
+- EaglerXServer injects into Velocity's socket by address: `inject_address` in `gateway/plugins/eaglerxserver/listeners.toml` must equal Velocity's `bind` (the script pins both to 127.0.0.1:25565).
+- Verified: WebSocket upgrade via the bridge reaches the gateway (101). Not verified: a full Eaglercraft client login/gameplay; client protocol version vs Fabric MC_VERSION (ViaVersion/ViaBackwards are installed to bridge gaps).

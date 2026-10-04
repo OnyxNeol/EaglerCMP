@@ -190,6 +190,20 @@ func (r *Runtime) Launch(ctx context.Context, m *downloader.Manifest, opts Launc
 	if err != nil {
 		return 1, err
 	}
+	be := NewBackend("backend", 25566, r.Cfg.Backend, r.Paths.Root, r.Paths.Logs, r.Log)
+	gw := NewBackend("gateway", 25565, r.Cfg.Gateway, r.Paths.Root, r.Paths.Logs, r.Log)
+	h.Mods, h.Restart = &Mods{Backend: be, Gateway: gw}, RestartHandler(be)
+	if r.Cfg.Backend.Enabled {
+		go be.Run(ctx)
+		// Browser WebSocket -> gateway (Eaglercraft protocol) -> Fabric. Without a
+		// gateway the backend itself must speak the Eaglercraft protocol.
+		target := be
+		if r.Cfg.Gateway.Enabled {
+			target = gw
+			go gw.Run(ctx)
+		}
+		h.Bridge = &Bridge{Addr: target.Addr(), Allow: h.allowedHost}
+	}
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", r.Cfg.Port))
 	if err != nil {
 		return 1, fmt.Errorf("port %d is busy (is EaglerCMP already running?): %w", r.Cfg.Port, err)
