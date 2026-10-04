@@ -1,13 +1,4 @@
 services:
-  provision:
-    build:
-      context: ./docker
-      dockerfile: Dockerfile.dev
-    working_dir: /src
-    volumes:
-      - ./eaglercmp:/src
-      - eagler-data:/data
-    command: ["sh","-ec","sh scripts/setup-local-stack.sh /data"]
   app:
     build:
       context: ./docker
@@ -19,10 +10,8 @@ services:
       - gocache:/root/.cache/go-build
     environment:
       - EAGLERCMP_HOME=/data
-    depends_on:
-      provision: {condition: service_completed_successfully}
     ports: ["3000:3000"]
-    command: ["sh","-ec","go run . launch -no-window"]
+    command: ["sh","-ec","sh scripts/setup-local-stack.sh /data && exec go run . launch -no-window"]
     healthcheck:
       test: ["CMD-SHELL","curl -fsS -H 'Host: 127.0.0.1:47262' http://127.0.0.1:47262/ >/dev/null || (echo game server down; exit 1)"]
       interval: 10s
