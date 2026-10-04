@@ -1,0 +1,31 @@
+services:
+  app:
+    image: golang:1.23
+    working_dir: /src
+    volumes:
+      - .:/src
+      - gocache:/root/.cache/go-build
+      - appdata:/data
+    environment:
+      - EAGLERCMP_HOME=/data
+    ports: ["3000:3000"]
+    command: ["sh", "-ec", "exec go run . launch -no-window"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:47262/ -H 'Host: 127.0.0.1:47262' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
+    restart: on-failure
+  proxy:
+    image: nginx:alpine
+    network_mode: "service:app"
+    volumes:
+      - ./nginx.base44.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: on-failure
+volumes:
+  gocache:
+  appdata:

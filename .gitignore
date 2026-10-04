@@ -1,0 +1,6 @@
+/bin/
+/dist/
+/data/
+*.exe
+/bundle/client.tar.gz
+/bundle/source.txt
