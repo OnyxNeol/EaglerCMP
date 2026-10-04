@@ -49,8 +49,25 @@ type Config struct {
 
 	// Servers are merged into eaglercraftXOpts.servers before the client boots.
 	Servers []Server `json:"servers,omitempty"`
+	// Backend is the optional local Java (Fabric/Paper) server bridged to the client.
+	Backend Backend `json:"backend"`
 	// ClientOptions are merged into eaglercraftXOpts (e.g. {"demoMode": false}).
 	ClientOptions map[string]any `json:"clientOptions,omitempty"`
+}
+
+// Backend configures the local JVM server supervised by the daemon. The server
+// must speak the Eaglercraft WebSocket protocol itself (e.g. an EaglerXServer /
+// Eaglercraft-for-Fabric plugin), listening on 127.0.0.1:WSPort; the daemon
+// only supervises it and tunnels the client's WebSocket to it.
+type Backend struct {
+	Enabled bool     `json:"enabled"`
+	Name    string   `json:"name,omitempty"`    // label in the multiplayer list
+	Java    string   `json:"java,omitempty"`    // java binary; default "java"
+	Dir     string   `json:"dir,omitempty"`     // server directory (world, mods/); default <instance>/backend
+	Jar     string   `json:"jar,omitempty"`     // server jar, relative to Dir (e.g. fabric-server-launch.jar)
+	JVMArgs []string `json:"jvmArgs,omitempty"` // e.g. ["-Xmx2G"]
+	Args    []string `json:"args,omitempty"`    // after -jar <jar>; default ["nogui"]
+	WSPort  int      `json:"wsPort,omitempty"`  // loopback Eaglercraft WebSocket port; default 8081
 }
 
 // FileName is the config file name inside the instance root.
@@ -117,6 +134,14 @@ func (c *Config) Validate() error {
 	for _, s := range c.Servers {
 		if s.Addr == "" {
 			return fmt.Errorf("server %q has no addr", s.Name)
+		}
+	}
+	if b := c.Backend; b.Enabled {
+		if b.Jar == "" {
+			return fmt.Errorf("backend.jar is required when the backend is enabled")
+		}
+		if b.WSPort < 0 || b.WSPort > 65535 {
+			return fmt.Errorf("invalid backend.wsPort %d", b.WSPort)
 		}
 	}
 	return nil

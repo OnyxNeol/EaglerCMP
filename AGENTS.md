@@ -2,3 +2,4 @@
 - The app only accepts `Host: 127.0.0.1:47262` on loopback, so an nginx sidecar (sharing the app's network namespace) exposes port 3000 and rewrites Host. No app code changed.
 - First boot downloads the Eaglercraft client (needs internet); it persists in the `eagler-data` volume.
 - Needs a browser with Wasm-GC (recent Chrome/Edge).
+- Optional JVM backend (`backend` in eaglercmp.json, manager/jvm.go + bridge.go): daemon supervises a Java server and tunnels the client WebSocket at /__eaglercmp/bridge to its loopback Eaglercraft WS port. Packet translation is NOT in Go; the Java server needs an Eaglercraft-protocol plugin (e.g. EaglerXServer). Server jar/mods are user-supplied.

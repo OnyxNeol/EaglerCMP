@@ -48,7 +48,10 @@ type Handler struct {
 	Port     int
 	Script   []byte
 	Branding []byte
-	files    http.Handler
+	// Bridge, when set, tunnels WebSocket connections on bridgePath to the
+	// local JVM backend.
+	Bridge http.Handler
+	files  http.Handler
 }
 
 // NewHandler builds the asset server for an installed client.
@@ -84,6 +87,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.Bridge != nil && path.Clean(r.URL.Path) == bridgePath {
+		h.Bridge.ServeHTTP(w, r)
 		return
 	}
 	hdr := w.Header()
@@ -164,6 +171,13 @@ func ClientScript(cfg *config.Config, flags []string) ([]byte, error) {
 	if servers == nil {
 		servers = []config.Server{}
 	}
+	bridge := ""
+	if cfg.Backend.Enabled {
+		bridge = cfg.Backend.Name
+		if bridge == "" {
+			bridge = "Local Modded Server"
+		}
+	}
 	opts := cfg.ClientOptions
 	if opts == nil {
 		opts = map[string]any{}
@@ -173,6 +187,8 @@ func ClientScript(cfg *config.Config, flags []string) ([]byte, error) {
 		"engine":        config.EngineName + " (" + config.EngineShort + ")",
 		"performance":   cfg.Performance,
 		"servers":       servers,
+		"bridge":        bridge,
+		"bridgePath":    bridgePath,
 		"clientOptions": opts,
 		"branding":      config.Branding(cfg.Performance, flags),
 	})
@@ -184,6 +200,7 @@ func ClientScript(cfg *config.Config, flags []string) ([]byte, error) {
 	b.Write(data)
 	b.WriteString(`;
 var opts;
+if (naohx.bridge) naohx.servers = [{ name: naohx.bridge, addr: (location.protocol === "https:" ? "wss://" : "ws://") + location.host + naohx.bridgePath }].concat(naohx.servers);
 function merge(v) {
 	if (!v || typeof v !== "object") return v;
 	for (var k in naohx.clientOptions) v[k] = naohx.clientOptions[k];

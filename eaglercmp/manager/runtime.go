@@ -190,6 +190,11 @@ func (r *Runtime) Launch(ctx context.Context, m *downloader.Manifest, opts Launc
 	if err != nil {
 		return 1, err
 	}
+	if r.Cfg.Backend.Enabled {
+		be := &Backend{Cfg: r.Cfg.Backend, Root: r.Paths.Root, Logs: r.Paths.Logs, Log: r.Log}
+		h.Bridge = &Bridge{Addr: be.Addr(), Allow: h.allowedHost}
+		go be.Run(ctx)
+	}
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", r.Cfg.Port))
 	if err != nil {
 		return 1, fmt.Errorf("port %d is busy (is EaglerCMP already running?): %w", r.Cfg.Port, err)
