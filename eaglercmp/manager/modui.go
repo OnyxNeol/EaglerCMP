@@ -4,13 +4,43 @@ package manager
 // floating button that opens a modal to upload/remove .jar mods and restart
 // the local server. All text is set via textContent (mod names are untrusted).
 const modUI = `
+// Title-screen detector: the canvas UI has no DOM, so watch WebGL draws for the
+// 1024x256 title logo texture; the Mods button is shown only while it is drawn.
+;(function () {
+var info = new WeakMap(), bound = {}, unit = 0x84C0;
+window.__nxTitleAt = 0;
+function hook(P) {
+	if (!P) return;
+	var ti = P.texImage2D, bt = P.bindTexture, at = P.activeTexture;
+	P.texImage2D = function (t, lv) {
+		var r = ti.apply(this, arguments), a = arguments, w, h;
+		if (lv === 0) {
+			if (a.length === 6) { w = a[5].width; h = a[5].height; } else if (a.length >= 9) { w = a[3]; h = a[4]; }
+			var tex = bound[unit + "|" + t];
+			if (tex) info.set(tex, w === 1024 && h === 256);
+		}
+		return r;
+	};
+	P.bindTexture = function (t, tex) { bound[unit + "|" + t] = tex; return bt.apply(this, arguments); };
+	P.activeTexture = function (u) { unit = u; return at.apply(this, arguments); };
+	["drawArrays", "drawElements"].forEach(function (n) {
+		var f = P[n]; if (!f) return;
+		P[n] = function () {
+			if (info.get(bound[unit + "|" + 0x0DE1])) window.__nxTitleAt = performance.now();
+			return f.apply(this, arguments);
+		};
+	});
+}
+hook(window.WebGLRenderingContext && WebGLRenderingContext.prototype);
+hook(window.WebGL2RenderingContext && WebGL2RenderingContext.prototype);
+})();
 ;(function () {
 "use strict";
 var API = "` + modsPath + `", RESTART = "` + backendRestartPath + `", H = { "X-EaglerCMP": "1" };
 var css = ".nx-btn,.nx-modal,.nx-modal *{box-sizing:border-box;font-family:'Minecraft','Press Start 2P',Consolas,'Courier New',monospace}" +
-".nx-btn{position:fixed;left:12px;top:12px;width:110px;z-index:2147483646;background:#6f6f6f;color:#e0e0e0;border:2px solid #000;border-radius:0;box-shadow:inset 2px 2px 0 #a8a8a8,inset -2px -2px 0 #3c3c3c;padding:9px 14px;font-size:16px;font-weight:700;text-shadow:2px 2px 0 #1e1e1e;cursor:pointer;image-rendering:pixelated}" +
-".nx-btn:hover,.nx-btn:focus{background:#7a86c9;color:#ffffa0;outline:none;box-shadow:inset 2px 2px 0 #b6bff0,inset -2px -2px 0 #3d4580}" +
-".nx-btn.hide{display:none}" +
+".nx-btn{position:fixed;left:12px;top:12px;width:150px;height:30px;z-index:2147483646;border:0;padding:0 0 3px;background:url(` + btnPNG + `) 0 0/100% 100% no-repeat;image-rendering:pixelated;color:#e0e0e0;font-size:15px;text-shadow:2px 2px 0 #3f3f3f;cursor:pointer;display:none}" +
+".nx-btn.show{display:block}" +
+".nx-btn:hover,.nx-btn:focus{background-image:url(` + btnHiPNG + `);color:#ffffa0;outline:none}" +
 ".nx-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center}" +
 ".nx-modal.open{display:flex}" +
 ".nx-card{width:min(560px,92vw);max-height:86vh;overflow:auto;background:#3b2a1a;background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.12) 0 8px,rgba(255,255,255,.03) 8px 16px);color:#e0e0e0;border:4px solid #000;box-shadow:inset 3px 3px 0 #6b4a2b,inset -3px -3px 0 #22160b;padding:18px}" +
@@ -23,8 +53,8 @@ var css = ".nx-btn,.nx-modal,.nx-modal *{box-sizing:border-box;font-family:'Mine
 ".nx-drop.over,.nx-drop:hover{background:rgba(122,134,201,.35)}" +
 ".nx-row{display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:2px;background:rgba(0,0,0,.4);font-size:12px}" +
 ".nx-row span:first-child{flex:1;word-break:break-all}.nx-row span+span{color:#aaa}" +
-".nx-b{background:#6f6f6f;color:#e0e0e0;border:2px solid #000;border-radius:0;box-shadow:inset 2px 2px 0 #a8a8a8,inset -2px -2px 0 #3c3c3c;padding:6px 12px;font-size:13px;font-weight:700;text-shadow:2px 2px 0 #1e1e1e;cursor:pointer}" +
-".nx-b:hover{background:#7a86c9;color:#ffffa0;box-shadow:inset 2px 2px 0 #b6bff0,inset -2px -2px 0 #3d4580}.nx-b.pri{background:#4a8a2a;box-shadow:inset 2px 2px 0 #7fcf55,inset -2px -2px 0 #2a5516}.nx-b.pri:hover{background:#5fae37}" +
+".nx-b{background:url(` + btnPNG + `) 0 0/100% 100% no-repeat;image-rendering:pixelated;color:#e0e0e0;border:0;min-width:110px;height:30px;padding:0 12px 3px;font-size:14px;text-shadow:2px 2px 0 #3f3f3f;cursor:pointer}" +
+".nx-b:hover{background-image:url(` + btnHiPNG + `);color:#ffffa0}.nx-b.pri{color:#ffff55}" +
 ".nx-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.nx-msg{font-size:12px;color:#55ff55;min-height:16px;margin-top:8px}";
 function el(t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
 function init() {
@@ -33,7 +63,7 @@ function init() {
 	var modal = el("div", "nx-modal"), card = el("div", "nx-card"); modal.appendChild(card);
 	document.body.appendChild(btn); document.body.appendChild(modal);
 	// Only show the button on the title screen: hide it while the mouse is captured (in-game).
-	document.addEventListener("pointerlockchange", function () { btn.classList.toggle("hide", !!document.pointerLockElement); });
+	setInterval(function () { btn.classList.toggle("show", performance.now() - window.__nxTitleAt < 700 && !document.pointerLockElement); }, 250);
 	var input = el("input"); input.type = "file"; input.accept = ".jar"; input.multiple = true; input.style.display = "none";
 	function api(url, opt) {
 		opt = opt || {}; opt.headers = H;
