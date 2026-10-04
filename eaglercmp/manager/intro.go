@@ -23,7 +23,6 @@ const (
 const introUI = `
 ;(function () {
 "use strict";
-if (sessionStorage.getItem("nxIntroDone")) return;
 var GIF_MS = 3870, BG = "#f0303f";
 var root = document.createElement("div");
 root.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:" + BG + ";display:flex;align-items:center;justify-content:center;transition:opacity .5s;font:14px monospace;color:#fff;cursor:pointer";
@@ -41,7 +40,6 @@ var finished = false, freezeTimer;
 function finish() {
 	if (finished) return; finished = true;
 	clearTimeout(freezeTimer); audio.pause();
-	sessionStorage.setItem("nxIntroDone", "1");
 	root.style.opacity = "0";
 	setTimeout(function () { root.remove(); }, 550);
 }
