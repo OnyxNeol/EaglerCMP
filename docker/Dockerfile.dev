@@ -1,0 +1,5 @@
+# Dev toolchain only (Go + JDK 25); source is bind-mounted by compose, never baked in.
+FROM eclipse-temurin:25-jdk
+COPY --from=golang:1.23 /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:${PATH}"
+RUN apt-get update && apt-get install -y --no-install-recommends curl jq && rm -rf /var/lib/apt/lists/*
