@@ -58,7 +58,9 @@ type Handler struct {
 	Restart http.Handler
 	// ClientMods is the directory of client-side JavaScript mods.
 	ClientMods string
-	files   http.Handler
+	// Events is the server-to-page event bridge.
+	Events *EventHub
+	files  http.Handler
 }
 
 // NewHandler builds the asset server for an installed client.
@@ -74,7 +76,8 @@ func NewHandler(dir string, m *downloader.Manifest, cfg *config.Config, flags []
 	return &Handler{
 		Dir: dir, Entry: m.Entry, Port: cfg.Port,
 		Script: script, Branding: branding,
-		files: http.FileServer(http.Dir(dir)),
+		Events: NewEventHub(),
+		files:  http.FileServer(http.Dir(dir)),
 	}, nil
 }
 
@@ -90,6 +93,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Reject DNS-rebinding requests: only the loopback origin may load assets.
 	if !h.allowedHost(r.Host) {
 		http.Error(w, "forbidden host", http.StatusForbidden)
+		return
+	}
+	switch path.Clean(r.URL.Path) {
+	case eventsPath:
+		h.checkOriginThen(w, r, http.HandlerFunc(h.Events.stream))
+		return
+	case eventsEmitPath:
+		h.checkOriginThen(w, r, http.HandlerFunc(h.Events.emit))
 		return
 	}
 	if h.Mods != nil {
@@ -276,6 +287,7 @@ console.log("[EaglerCMP] " + naohx.title + " v" + naohx.branding.launcherVersion
 `)
 	b.WriteString(modUI)
 	b.WriteString(clientModLoader)
+	b.WriteString(fxRuntime)
 	b.WriteString(introUI)
 	return b.Bytes(), nil
 }
