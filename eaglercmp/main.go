@@ -35,6 +35,9 @@ Commands:
   init              Create the instance and install the client (clientSource,
                     else the bundled client, else the upstream 26.2 repo)
   update            Re-download the client from clientSource or the upstream repo
+  java-client       Run the real Minecraft 26.2 Java client (Fabric Loader, offline
+                    session) in a local JVM; put Fabric client mods in
+                    <instance>/javaclient/game/mods
   status            Show the instance, client and window configuration
   credits           Show open-source attribution
 
@@ -78,6 +81,7 @@ func run(argv []string) int {
 	dryRun := fs.Bool("dry-run", false, "launch: print the window command instead of running it")
 	noWindow := fs.Bool("no-window", false, "launch: only serve the client; open the URL yourself")
 	skipVerify := fs.Bool("skip-verify", false, "launch: skip re-hashing client files")
+	username := fs.String("username", "", "java-client: offline player name (3-16 letters/digits/_)")
 	verbose := fs.Bool("verbose", false, "launch: show every browser-engine log line")
 	fs.Usage = func() {
 		fmt.Fprint(fs.Output(), usage)
@@ -189,6 +193,28 @@ func run(argv []string) int {
 		code, err := rt.Launch(ctx, m, manager.LaunchOptions{NoWindow: *noWindow, Verbose: *verbose}, console)
 		if err != nil {
 			log.Printf("launch failed: %v", err)
+			return 1
+		}
+		return code
+
+	case "java-client":
+		jc := cfg.JavaClient
+		if *username != "" {
+			jc.Username = *username
+		}
+		srv := "127.0.0.1:25565"
+		if cfg.Gateway.Enabled && cfg.Gateway.Port != 0 {
+			srv = fmt.Sprintf("127.0.0.1:%d", cfg.Gateway.Port)
+		} else if !cfg.Gateway.Enabled && cfg.Backend.Enabled {
+			srv = "127.0.0.1:25566"
+			if cfg.Backend.Port != 0 {
+				srv = fmt.Sprintf("127.0.0.1:%d", cfg.Backend.Port)
+			}
+		}
+		runner := &manager.JavaClient{Cfg: jc, Root: root, Server: srv, Log: log}
+		code, err := runner.Run(ctx, *dryRun, console)
+		if err != nil {
+			log.Printf("java-client: %v", err)
 			return 1
 		}
 		return code

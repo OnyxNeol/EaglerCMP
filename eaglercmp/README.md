@@ -113,6 +113,16 @@ browser-engine log lines, not just page console output).
 Default instance directory: Linux `~/.local/share/eaglercmp`, macOS
 `~/Library/Application Support/EaglerCMP`, Windows `%APPDATA%\EaglerCMP`.
 
+## Real Java client mods (`eaglercmp java-client`)
+
+Runs the actual Minecraft 26.2 desktop client with Fabric Loader in a local JVM, so unmodified Fabric client mods (Sodium, Physics Mod, ...) work. It needs Java 25+ on PATH (or `javaClient.java`).
+
+- First run downloads Minecraft 26.2, Fabric Loader, assets and Fabric API (Modrinth) into `<instance>/javaclient/`.
+- Drop Fabric client `.jar` files in `<instance>/javaclient/game/mods/`. Fabric Loader discovers them there itself; they must not be put on the JVM classpath by hand. Fabric API is installed there automatically.
+- **Offline session:** `-username Name` (3-16 letters/digits/`_`, default `Player`) with a deterministic offline UUID and a dummy token; no Microsoft login. This only works against offline-mode servers such as the local Velocity/Fabric stack (`127.0.0.1:25565`, or `javaClient.server`). Use your own licensed copy of Minecraft; the client is fetched from Mojang's public download servers.
+- `-dry-run` prepares the files and prints the JVM command without starting the game. Config: `javaClient` in `eaglercmp.json` (`version`, `username`, `server`, `java`, `jvmArgs`, `dir`).
+- Release archives include `java-client.bat` / `java-client.sh`.
+
 ## Configuration (`<instance>/eaglercmp.json`)
 
 ```json

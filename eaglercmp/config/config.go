@@ -56,6 +56,9 @@ type Config struct {
 	// in front of Backend: the browser's WebSocket tunnel ends here, and the
 	// gateway forwards standard Minecraft packets to the Fabric server.
 	Gateway Backend `json:"gateway"`
+	// JavaClient configures `eaglercmp java-client`: a real desktop Minecraft
+	// client (Fabric Loader) started in a local JVM with an offline session.
+	JavaClient JavaClient `json:"javaClient"`
 	// ClientOptions are merged into eaglercraftXOpts (e.g. {"demoMode": false}).
 	ClientOptions map[string]any `json:"clientOptions,omitempty"`
 }
@@ -223,4 +226,16 @@ func DefaultRoot() string {
 		return filepath.Join(home, ".local", "share", "eaglercmp")
 	}
 	return "eaglercmp-data"
+}
+
+// JavaClient is the offline desktop (native JVM) client runner. Empty fields
+// take defaults: Version 26.2, Username "Player", Server = the local gateway
+// (else the Fabric backend), Java = "java" from PATH, Dir = <instance>/javaclient.
+type JavaClient struct {
+	Version  string   `json:"version,omitempty"`
+	Username string   `json:"username,omitempty"`
+	Server   string   `json:"server,omitempty"`
+	Java     string   `json:"java,omitempty"`
+	JVMArgs  []string `json:"jvmArgs,omitempty"`
+	Dir      string   `json:"dir,omitempty"`
 }

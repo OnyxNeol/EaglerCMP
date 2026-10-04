@@ -18,6 +18,12 @@ mkdir -p "$stage"
 cp "$bin" "$stage/"
 cp README.md NOTICE.md "$stage/"
 chmod +x "$stage/eaglercmp${ext}"
+# real Java client runner (offline session, Fabric client mods)
+if [[ "$os" == "windows" ]]; then
+  printf '@echo off\r\n"%%~dp0eaglercmp.exe" java-client %%*\r\npause\r\n' > "$stage/java-client.bat"
+else
+  printf '#!/bin/sh\nexec "$(dirname "$0")/eaglercmp" java-client "$@"\n' > "$stage/java-client.sh"; chmod +x "$stage/java-client.sh"
+fi
 
 (
   cd dist
