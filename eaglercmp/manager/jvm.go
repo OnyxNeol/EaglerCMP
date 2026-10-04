@@ -33,10 +33,12 @@ const (
 // Problems are recorded in Status so the UI can report them; a server that
 // cannot start is not retried in a loop.
 type Backend struct {
-	Cfg  config.Backend
-	Root string // instance root, for the default Dir
-	Logs string
-	Log  *Logger
+	Name    string // "backend" or "gateway": default dir, log file and log prefix
+	Cfg     config.Backend
+	Root    string // instance root, for the default Dir
+	DefPort int    // listen port when Cfg.Port is unset
+	Logs    string
+	Log     *Logger
 
 	mu     sync.Mutex
 	state  string
@@ -46,12 +48,12 @@ type Backend struct {
 }
 
 // NewBackend creates a supervisor; it only runs once Run is called.
-func NewBackend(cfg config.Backend, root, logs string, log *Logger) *Backend {
+func NewBackend(name string, defPort int, cfg config.Backend, root, logs string, log *Logger) *Backend {
 	st := StateDisabled
 	if cfg.Enabled {
 		st = StateStarting
 	}
-	return &Backend{Cfg: cfg, Root: root, Logs: logs, Log: log, state: st, kick: make(chan struct{}, 1)}
+	return &Backend{Name: name, DefPort: defPort, Cfg: cfg, Root: root, Logs: logs, Log: log, state: st, kick: make(chan struct{}, 1)}
 }
 
 // Dir is the server directory (world, mods/, jar).
@@ -59,17 +61,17 @@ func (b *Backend) Dir() string {
 	if b.Cfg.Dir != "" {
 		return b.Cfg.Dir
 	}
-	return filepath.Join(b.Root, "backend")
+	return filepath.Join(b.Root, b.Name)
 }
 
 // ModsDir is where uploaded .jar mods are placed.
 func (b *Backend) ModsDir() string { return filepath.Join(b.Dir(), "mods") }
 
-// Addr is the loopback Eaglercraft WebSocket endpoint of the server.
+// Addr is the loopback endpoint the process listens on.
 func (b *Backend) Addr() string {
-	p := b.Cfg.WSPort
+	p := b.Cfg.Port
 	if p == 0 {
-		p = 8081
+		p = b.DefPort
 	}
 	return fmt.Sprintf("127.0.0.1:%d", p)
 }
@@ -86,7 +88,7 @@ func (b *Backend) set(state, msg string) {
 	b.state, b.errMsg = state, msg
 	b.mu.Unlock()
 	if state == StateError {
-		b.Log.Printf("backend: %s", msg)
+		b.Log.Printf(b.Name+": %s", msg)
 	}
 }
 
@@ -115,7 +117,7 @@ func (b *Backend) java() string {
 func (b *Backend) Preflight() error {
 	jar := filepath.Join(b.Dir(), b.Cfg.Jar)
 	if st, err := os.Stat(jar); err != nil || st.IsDir() {
-		return fmt.Errorf("server jar %q not found: put it in %s (see scripts/testserver.sh)", b.Cfg.Jar, b.Dir())
+		return fmt.Errorf("%s jar %q not found: put it in %s (run scripts/setup-local-stack.sh)", b.Name, b.Cfg.Jar, b.Dir())
 	}
 	bin, err := exec.LookPath(b.java())
 	if err != nil {
@@ -158,7 +160,7 @@ func (b *Backend) Run(ctx context.Context) {
 		b.set(StateError, err.Error())
 		return
 	}
-	logPath := filepath.Join(b.Logs, "backend.log")
+	logPath := filepath.Join(b.Logs, b.Name+".log")
 	logf, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		b.set(StateError, err.Error())
@@ -182,7 +184,7 @@ func (b *Backend) Run(ctx context.Context) {
 		cmd := b.command(runCtx)
 		cmd.Stdout, cmd.Stderr = logf, logf
 		start := time.Now()
-		b.Log.Printf("backend: starting %s (logs: backend.log)", cmd.String())
+		b.Log.Printf(b.Name+": starting %s (logs: "+b.Name+".log)", cmd.String())
 		var runErr error
 		if runErr = cmd.Start(); runErr == nil {
 			go b.waitReady(runCtx)
@@ -198,14 +200,14 @@ func (b *Backend) Run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		b.Log.Printf("backend: exited: %v", runErr)
+		b.Log.Printf(b.Name+": exited: %v", runErr)
 		if time.Since(start) < fastFailWindow {
 			fails++
 		} else {
 			fails, backoff = 0, time.Second
 		}
 		if fails >= maxFastFails {
-			b.set(StateError, fmt.Sprintf("server crashed %d times right after starting; last output: %s", fails, tail(logPath, 400)))
+			b.set(StateError, fmt.Sprintf(b.Name+" crashed %d times right after starting; last output: %s", fails, tail(logPath, 400)))
 			if !b.wait(ctx) {
 				return
 			}
@@ -230,13 +232,13 @@ func (b *Backend) waitReady(ctx context.Context) {
 		if c, err := net.DialTimeout("tcp", b.Addr(), time.Second); err == nil {
 			c.Close()
 			b.set(StateReady, "")
-			b.Log.Printf("backend: ready on %s", b.Addr())
+			b.Log.Printf(b.Name+": ready on %s", b.Addr())
 			return
 		}
 		time.Sleep(time.Second)
 	}
 	if ctx.Err() == nil {
-		b.set(StateError, "server is running but nothing listens on "+b.Addr()+": is an Eaglercraft plugin installed and wsPort correct?")
+		b.set(StateError, b.Name+" is running but nothing listens on "+b.Addr()+": check its config and logs/"+b.Name+".log")
 	}
 }
 

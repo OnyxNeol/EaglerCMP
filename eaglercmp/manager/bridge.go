@@ -18,7 +18,7 @@ const bridgePath = "/__eaglercmp/bridge"
 // Java server) performs the WebSocket handshake and speaks the Eaglercraft
 // protocol itself, so no frames are parsed or translated here.
 type Bridge struct {
-	Addr  string // backend host:port, e.g. 127.0.0.1:8081
+	Addr  string // backend host:port, e.g. 127.0.0.1:25565
 	Allow func(host string) bool
 }
 

@@ -13,7 +13,7 @@ import (
 
 func newMods(t *testing.T) (*Mods, string) {
 	root := t.TempDir()
-	be := NewBackend(config.Backend{Enabled: true, Jar: "s.jar"}, root, root, testLog(t))
+	be := NewBackend("backend", 25566, config.Backend{Enabled: true, Jar: "s.jar"}, root, root, testLog(t))
 	return &Mods{Backend: be}, be.ModsDir()
 }
 
@@ -57,7 +57,7 @@ func TestModUploadListDelete(t *testing.T) {
 
 func TestBackendPreflight(t *testing.T) {
 	root := t.TempDir()
-	be := NewBackend(config.Backend{Enabled: true, Jar: "s.jar", Java: "no-such-java"}, root, root, testLog(t))
+	be := NewBackend("backend", 25566, config.Backend{Enabled: true, Jar: "s.jar", Java: "no-such-java"}, root, root, testLog(t))
 	if err := be.Preflight(); err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("want missing jar error, got %v", err)
 	}

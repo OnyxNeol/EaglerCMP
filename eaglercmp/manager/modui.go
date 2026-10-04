@@ -41,8 +41,12 @@ function init() {
 		card.appendChild(el("h2", null, "NaOHX // MODS"));
 		card.appendChild(el("div", "nx-sub", "Sodium HX Graphics - local Fabric server mods (.jar)"));
 		var b = data.backend || {};
-		card.appendChild(el("span", "nx-pill " + b.state, "server: " + b.state));
-		if (b.error) card.appendChild(el("p", "nx-err", b.error));
+		var g = data.gateway || {};
+		card.appendChild(el("span", "nx-pill " + b.state, "fabric: " + b.state));
+		card.appendChild(document.createTextNode(" "));
+		card.appendChild(el("span", "nx-pill " + g.state, "gateway: " + g.state));
+		if (b.error) card.appendChild(el("p", "nx-err", "Fabric: " + b.error));
+		if (g.error) card.appendChild(el("p", "nx-err", "Gateway: " + g.error));
 		var drop = el("div", "nx-drop", "Drop .jar files here or click to upload");
 		drop.onclick = function () { input.click(); };
 		drop.ondragover = function (e) { e.preventDefault(); drop.classList.add("over"); };

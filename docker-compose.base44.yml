@@ -1,4 +1,13 @@
 services:
+  provision:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.dev
+    working_dir: /src
+    volumes:
+      - ./eaglercmp:/src
+      - eagler-data:/data
+    command: ["sh","-ec","sh scripts/setup-local-stack.sh /data"]
   app:
     build:
       context: ./docker
@@ -10,6 +19,8 @@ services:
       - gocache:/root/.cache/go-build
     environment:
       - EAGLERCMP_HOME=/data
+    depends_on:
+      provision: {condition: service_completed_successfully}
     ports: ["3000:3000"]
     command: ["sh","-ec","go run . launch -no-window"]
     healthcheck:

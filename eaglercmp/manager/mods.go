@@ -23,7 +23,7 @@ var errNotJar = errors.New("file is not a valid .jar (missing zip signature or e
 var modNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+() -]{0,120}\.jar$`)
 
 // Mods lists, stores and removes .jar mods in the backend's mods directory.
-type Mods struct{ Backend *Backend }
+type Mods struct{ Backend, Gateway *Backend }
 
 type modInfo struct {
 	Name string `json:"name"`
@@ -61,9 +61,14 @@ func (m *Mods) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		state, msg := m.Backend.Status()
+		gs, gm := StateDisabled, ""
+		if m.Gateway != nil {
+			gs, gm = m.Gateway.Status()
+		}
 		writeJSON(w, 200, map[string]any{
 			"mods":    m.list(),
 			"backend": map[string]any{"state": state, "error": msg},
+			"gateway": map[string]any{"state": gs, "error": gm},
 		})
 	case http.MethodPost:
 		if !modNameRe.MatchString(name) {
